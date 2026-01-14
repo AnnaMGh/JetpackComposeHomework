@@ -1,2 +1,2 @@
 # JetpackComposeHomework
-Homework from the PH Learning Jetpack Compose Masterclass
+Homework from the pl-coding Jetpack Compose Masterclass
