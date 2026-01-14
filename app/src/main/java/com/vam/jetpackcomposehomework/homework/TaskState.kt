@@ -3,6 +3,7 @@ package com.vam.jetpackcomposehomework.homework
 import java.util.UUID
 
 data class TaskState(
+    val newTask: Task = Task(),
     val tasks: List<Task> = listOf()
 )
 

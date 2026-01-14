@@ -1,15 +1,21 @@
 package com.vam.jetpackcomposehomework.homework
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -18,6 +24,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -32,9 +39,12 @@ fun TaskCell(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(color = Color.White, shape = RoundedCornerShape(5.dp))
+            .background(
+                color = if (isSystemInDarkTheme()) Color.Black else Color.White,
+                shape = RoundedCornerShape(5.dp)
+            )
             .padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(
             modifier = Modifier
@@ -46,30 +56,43 @@ fun TaskCell(
                 text = task.title,
                 fontSize = 16.sp * sizeMultiplier,
                 fontWeight = FontWeight.SemiBold,
+                color = if (isSystemInDarkTheme()) Color.White else Color.Black,
                 textDecoration = if (task.isChecked) TextDecoration.LineThrough else TextDecoration.None,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
 
             Text(
-                fontSize = 16.sp * sizeMultiplier,
                 text = task.description,
+                fontSize = 16.sp * sizeMultiplier,
+                color = if (isSystemInDarkTheme()) Color.White else Color.Black,
                 textDecoration = if (task.isChecked) TextDecoration.LineThrough else TextDecoration.None,
             )
         }
 
-        Checkbox(
-            modifier = Modifier.scale(sizeMultiplier),
-            checked = task.isChecked,
-            onCheckedChange = {
-                onAction(
-                    TaskAction.OnItemTaskChecked(task.id)
-                )
-            })
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Checkbox(
+                modifier = Modifier.scale(sizeMultiplier),
+                checked = task.isChecked,
+                onCheckedChange = {
+                    onAction(
+                        TaskAction.OnTaskChecked(task.id)
+                    )
+                })
+
+            IconButton(
+                modifier = Modifier.scale(sizeMultiplier),
+                onClick = { onAction(TaskAction.OnTaskDeleted(task.id)) }) {
+                Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete icon")
+            }
+        }
     }
 }
 
-
+@PreviewLightDark
 @Preview(device = Devices.PIXEL_9)
 @Composable
 fun TaskPhonePreview() {
@@ -79,12 +102,13 @@ fun TaskPhonePreview() {
     )
 }
 
-
+@PreviewLightDark
 @Preview(device = Devices.NEXUS_10)
 @Composable
 fun TaskTabletPreview() {
     TaskCell(
         task = DummyData.tasks[1],
-        onAction = {}
+        onAction = {},
+        sizeMultiplier = 1.5f
     )
 }
