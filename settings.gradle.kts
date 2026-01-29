@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "JetpackComposeHomework"
 include(":app")
- 
+include(":baselineprofile")
