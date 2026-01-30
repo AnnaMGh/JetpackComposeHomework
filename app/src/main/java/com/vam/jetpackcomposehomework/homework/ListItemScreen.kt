@@ -3,9 +3,7 @@ package com.vam.jetpackcomposehomework.homework
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.BitmapFactory
-import android.util.LruCache
 import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -38,25 +36,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.Bitmap
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 private const val FILE_NAME = "kermit.jpg"
 
@@ -75,18 +75,29 @@ data class ListItem(
     val title: String,
     val description: String,
     val isContextMenuVisible: Boolean,
-    val photo: ImageBitmap?
+    val photo: Bitmap?
 )
 
 sealed interface ListAction {
     data class OnContextVisibilityChange(val id: Int, val isVisible: Boolean) : ListAction
-    data class OnCreatePhoto(val id: Int, val photo: ImageBitmap) : ListAction
+    data class OnCreatePhoto(val id: Int, val photo: Bitmap) : ListAction
 }
 
-class ListViewModel : ViewModel() {
+class ListViewModel(val repo: AssetRepository) : ViewModel() {
 
     private val _items = MutableStateFlow(initialItems)
     val items = _items.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val photo = repo.get()
+            _items.update { currentItems ->
+                currentItems.map {
+                    it.copy(photo = photo)
+                }
+            }
+        }
+    }
 
     fun onAction(action: ListAction) {
         when (action) {
@@ -115,7 +126,9 @@ class ListViewModel : ViewModel() {
 
 @Composable
 fun ListItemScreenRoot(modifier: Modifier = Modifier) {
-    val viewModel = viewModel<ListViewModel>()
+    val context = LocalContext.current.applicationContext
+    val repo = remember { AssetRepository(context) }
+    val viewModel = viewModel<ListViewModel> { ListViewModel(repo) }
     val items by viewModel.items.collectAsStateWithLifecycle()
     Homework1(
         items = items,
@@ -130,7 +143,6 @@ fun Homework1(
     onAction: (ListAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -139,11 +151,6 @@ fun Homework1(
 
         // Add Key=Id so the items can be unique => will not recompose all the list when an item is changed
         items(items, key = { it.id }) { item ->
-            LaunchedEffect(item.photo) {
-                // Cache bitmap by name
-                val bmp = AssetImageCache.get(context, FILE_NAME)
-                onAction(ListAction.OnCreatePhoto(item.id, bmp))
-            }
             ContextualListItem(
                 item = item,
                 modifier = Modifier
@@ -216,8 +223,8 @@ private fun ContextualListItem(
             supportingContent = { Text(item.description) },
             leadingContent = {
                 item.photo?.let {
-                    Image(
-                        bitmap = item.photo,
+                    AsyncImage(
+                        model = item.photo,
                         contentDescription = null,
                         modifier = Modifier
                             .size(100.dp),
@@ -226,9 +233,7 @@ private fun ContextualListItem(
                 }
             },
             modifier = Modifier
-                .offset(x = with(LocalDensity.current) {
-                    offset.value.toDp()
-                })
+                .offset { IntOffset(x = offset.value.roundToInt(), 0) }
                 .background(Color.Green)
                 .pointerInput(true) {
                     detectHorizontalDragGestures(
@@ -262,23 +267,16 @@ private fun ContextualListItem(
     }
 }
 
-object AssetImageCache {
-    private val cache = LruCache<String, ImageBitmap>(50)
-
-    suspend fun get(context: Context, assetName: String): ImageBitmap {
-        cache.get(assetName)?.let { return it }
-
+class AssetRepository(val context: Context) {
+    suspend fun get(assetName: String = FILE_NAME): Bitmap =
         // Run on IO so the UI Thread wil not be blocked
-        val img = withContext(Dispatchers.IO) {
-            context.assets.open(assetName).use { input ->
-                // Decode directly from stream (avoid readBytes() allocation)
-                BitmapFactory.decodeStream(input).asImageBitmap()
+        withContext(Dispatchers.IO) {
+            context.assets.open(assetName).use {
+                it.readBytes()
+            }.let {
+                BitmapFactory.decodeByteArray(it, 0, it.size)
             }
         }
-
-        cache.put(assetName, img)
-        return img
-    }
 }
 
 @Preview(showBackground = true)
